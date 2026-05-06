@@ -7,6 +7,7 @@ import {
   triggerWorkflowViaPush,
 } from "@/lib/github";
 import type { StagingSiteConfig } from "@/actions/wizard";
+import { extractFaviconFromLogo } from "@/lib/favicon-extractor";
 
 interface SaveRequestBody {
   domain: string;
@@ -169,14 +170,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     // Set theme references for logo/favicon
-    if (logoBase64 || faviconBase64) {
+    // When a logo is provided without a separate favicon, auto-extract the
+    // icon portion as a square favicon so the browser tab is recognizable.
+    let effectiveFaviconBase64 = faviconBase64;
+    if (logoBase64 && !faviconBase64) {
+      try {
+        const extracted = await extractFaviconFromLogo(Buffer.from(logoBase64, "base64"));
+        effectiveFaviconBase64 = extracted.toString("base64");
+      } catch {
+        // Fall back to using the full logo as favicon
+        effectiveFaviconBase64 = logoBase64;
+      }
+    }
+
+    if (logoBase64 || effectiveFaviconBase64) {
       const theme = (existing.theme ?? {}) as Record<string, unknown>;
       if (logoBase64) {
         theme.logo = "/assets/logo.png";
-        // Only default favicon to logo if no separate favicon provided
-        if (!faviconBase64) theme.favicon = "/assets/logo.png";
       }
-      if (faviconBase64) {
+      if (effectiveFaviconBase64) {
         theme.favicon = "/assets/favicon.png";
       }
       existing.theme = theme;
@@ -196,15 +208,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         content: Buffer.from(logoBase64, "base64"),
       });
     }
-    if (faviconBase64) {
+    if (effectiveFaviconBase64) {
       files.push({
         path: `sites/${domain}/assets/favicon.png`,
-        content: Buffer.from(faviconBase64, "base64"),
+        content: Buffer.from(effectiveFaviconBase64, "base64"),
       });
     }
 
-    const hasAssets = logoBase64 || faviconBase64;
-    const assetLabel = logoBase64 && faviconBase64
+    const hasAssets = logoBase64 || effectiveFaviconBase64;
+    const assetLabel = logoBase64 && effectiveFaviconBase64
       ? "logo and favicon"
       : logoBase64
         ? "logo"

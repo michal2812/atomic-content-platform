@@ -26,6 +26,7 @@ import { workerPreviewUrl, KV_NAMESPACE_PROD } from "@/lib/constants";
 import type { WizardFormData, DashboardSiteEntry } from "@/types/dashboard";
 import { revalidatePath } from "next/cache";
 import { removeBackground } from "@/lib/remove-background";
+import { extractFaviconFromLogo } from "@/lib/favicon-extractor";
 import {
   enableEmailRouting,
   createEmailRoutingRule,
@@ -234,6 +235,16 @@ ${data.contentGuidelines || "Follow standard editorial guidelines."}
 
   if (data.faviconBase64) {
     faviconBuffer = Buffer.from(data.faviconBase64, "base64");
+  } else if (logoBuffer) {
+    // Auto-extract a square icon favicon from the landscape logo so the
+    // browser tab shows a recognizable icon rather than the full logo+text
+    // shrunk to 16x16.
+    try {
+      faviconBuffer = await extractFaviconFromLogo(logoBuffer);
+    } catch (err) {
+      console.warn("[wizard] Favicon extraction failed, falling back to logo:", err);
+      faviconBuffer = logoBuffer;
+    }
   }
 
   // 4. Prepare files — all under sites/{projectName}/

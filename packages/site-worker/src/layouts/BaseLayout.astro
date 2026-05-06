@@ -47,7 +47,12 @@ const cssVars = Object.entries(theme.colors)
 
     <title>{title}</title>
     <meta name="description" content={description} />
-    {theme.favicon && <link rel="icon" href={theme.favicon} />}
+    {theme.favicon && (
+      <>
+        <link rel="icon" type="image/png" sizes="32x32" href={theme.favicon} />
+        <link rel="apple-touch-icon" sizes="180x180" href={theme.favicon} />
+      </>
+    )}
 
     {googleFontsUrl && (
       <>

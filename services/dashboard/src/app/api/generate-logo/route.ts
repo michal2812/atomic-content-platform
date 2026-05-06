@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { removeBackground } from "@/lib/remove-background";
+import { extractFaviconFromLogo } from "@/lib/favicon-extractor";
 
 const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -68,7 +69,15 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const raw = Buffer.from(imagePart.inlineData.data, "base64");
     const transparent = await removeBackground(raw);
-    return NextResponse.json({ image: transparent.toString("base64") });
+    // Also extract a square favicon from the logo so the caller gets both
+    let faviconBase64: string | undefined;
+    try {
+      const faviconBuf = await extractFaviconFromLogo(transparent);
+      faviconBase64 = faviconBuf.toString("base64");
+    } catch {
+      // Non-fatal — favicon extraction failed, caller can fall back
+    }
+    return NextResponse.json({ image: transparent.toString("base64"), favicon: faviconBase64 });
   } catch (err) {
     console.error("[generate-logo] Error:", err);
     return NextResponse.json(
